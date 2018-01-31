@@ -18,22 +18,22 @@ class OneLogin_Saml2_Utils
 
 
     /**
-     * @var string
+     * @var string|null
      */
     private static $_host;
 
     /**
-     * @var string
+     * @var string|null
      */
     private static $_protocol;
 
     /**
-     * @var int
+     * @var int|null
      */
     private static $_port;
 
     /**
-     * @var string
+     * @var string|null
      */
     private static $_baseurlpath;
 
@@ -73,7 +73,7 @@ class OneLogin_Saml2_Utils
      *
      * @throws Exception
      *
-     * @return DOMDocument $dom The result of load the XML at the DomDocument
+     * @return DOMDocument|false $dom The result of load the XML at the DomDocument
      */
     public static function loadXML($dom, $xml)
     {
@@ -253,7 +253,9 @@ class OneLogin_Saml2_Utils
         }
 
         /* Verify that the URL is to a http or https site. */
-        if (!preg_match('@^https?://@i', $url)) {
+        $wrongProtocol = !preg_match('@^https?://@i', $url);
+        $url = filter_var($url, FILTER_VALIDATE_URL);
+        if ($wrongProtocol || empty($url)) {
             throw new OneLogin_Saml2_Error(
                 'Redirect to invalid URL: ' . $url,
                 OneLogin_Saml2_Error::REDIRECT_INVALID_URL
@@ -644,14 +646,14 @@ class OneLogin_Saml2_Utils
      */
     public static function generateUniqueID()
     {
-        return 'ONELOGIN_' . sha1(uniqid(mt_rand(), true));
+        return 'ONELOGIN_' . sha1(uniqid((string)mt_rand(), true));
     }
 
     /**
      * Converts a UNIX timestamp to SAML2 timestamp on the form
      * yyyy-mm-ddThh:mm:ss(\.s+)?Z.
      *
-     * @param string $time The time we should convert (DateTime).
+     * @param string|int $time The time we should convert (DateTime).
      *
      * @return string $timestamp SAML2 timestamp.
      */
@@ -725,6 +727,7 @@ class OneLogin_Saml2_Utils
 
         /* Parse the duration. We use a very strict pattern. */
         $durationRegEx = '#^(-?)P(?:(?:(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?)|(?:(\\d+)W))$#D';
+        $matches = array(); 
         if (!preg_match($durationRegEx, $duration, $matches)) {
             throw new Exception('Invalid ISO 8601 duration: ' . $duration);
         }
@@ -799,7 +802,7 @@ class OneLogin_Saml2_Utils
      * @param string $cacheDuration The duration, as a string.
      * @param string $validUntil    The valid until date, as a string or as a timestamp
      *
-     * @return int $expireTime  The expiration time.
+     * @return int|null $expireTime  The expiration time.
      */
     public static function getExpireTime($cacheDuration = null, $validUntil = null)
     {
@@ -883,6 +886,7 @@ class OneLogin_Saml2_Utils
      * Calculates the fingerprint of a x509cert.
      *
      * @param string $x509cert x509 cert
+     * @param string $alg
      *
      * @return null|string Formatted fingerprint
      */
@@ -952,7 +956,7 @@ class OneLogin_Saml2_Utils
      *
      * @return string $nameIDElement DOMElement | XMLSec nameID
      */
-    public static function generateNameId($value, $spnq, $format, $cert = null, $nq = null)
+    public static function generateNameId($value, $spnq, $format = null, $cert = null, $nq = null)
     {
 
         $doc = new DOMDocument();
@@ -964,7 +968,9 @@ class OneLogin_Saml2_Utils
         if (isset($nq)) {
             $nameId->setAttribute('NameQualifier', $nq);
         }
-        $nameId->setAttribute('Format', $format);
+        if (isset($format)) {
+            $nameId->setAttribute('Format', $format);
+        }
         $nameId->appendChild($doc->createTextNode($value));
 
         $doc->appendChild($nameId);
